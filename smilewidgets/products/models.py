@@ -46,7 +46,7 @@ class ProductPrice(models.Model):
         # parse date string, expecting YYYY-MM-DD
         # wrapped in a try except to handle improperly formatted dates
         try:
-            datetime_obj = datetime.strptime(date, '%Y-%m-%d')
+            datetime_obj = datetime.strptime(date, '%Y-%m-%d').date()
         except:
             resp_dict['error'] = True
             resp_dict['errorText'] = "The date was improperly formatted. Expecting YYYY-MM-DD"
@@ -89,14 +89,22 @@ class ProductPrice(models.Model):
             if giftCardCode is not None:
                 # retrieve value of gift card, if card does not exist ignore
                 try:
-                    gift_card_value = GiftCard.objects.filter(code=giftCardCode).get().amount/100
+                    gift_card = GiftCard.objects.filter(code=giftCardCode).get()
+                    gift_card_value = gift_card.amount/100
+                    gift_card_start = gift_card.date_start
+                    gift_card_end = gift_card.date_end
+                    # parse end only if date present
+                    if gift_card_end is None:
+                        gift_card_end = datetime_obj
 
-                    # reduce product_price by gift_card_value and set to zero if negative
-                    product_price = product_price - gift_card_value
-                    if product_price < 0:
-                        product_price = 0
-                except:
+                    if datetime_obj >= gift_card_start and datetime_obj <= gift_card_end:
+                        # reduce product_price by gift_card_value and set to zero if negative
+                        product_price = product_price - gift_card_value
+                        if product_price < 0:
+                            product_price = 0
+                except Exception as e:
                     # passing as not having a valid gift card does not affect price
+                    print(e)
                     pass
 
             resp_dict['price'] = product_price
